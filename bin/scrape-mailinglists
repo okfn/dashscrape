@@ -1,1 +1,148 @@
-echo
+#!/usr/bin/env python
+"""
+Usage: scrape-mailinglists [count] < mailinglists.txt
+
+This program expects to read a newline-delimited list of Pipermail archive
+URLs on STDIN. It will print 'count' recent emails (the most recent across
+all the supplied URLs). By default, 'count' is 30.
+"""
+
+from __future__ import print_function
+
+import dateutil
+import dateutil.parser
+import json
+import lxml.html
+import os
+import requests
+import sys
+import textwrap
+
+MAILS = 30
+
+def main():
+    if os.isatty(sys.stdin.fileno()):
+        usage()
+        sys.exit(1)
+
+    if len(sys.argv) == 2:
+        count = int(sys.argv[1])
+    elif len(sys.argv) != 1:
+        print("Error: expected zero or one arguments!", file=sys.stderr)
+        sys.exit(1)
+    else:
+        count = 30
+
+    mail = []
+
+    for url in sys.stdin:
+        mail.extend(parse_archives_page(url.strip(), max_mails=30))
+
+    mail.sort(key=lambda m: m['date'])
+
+    print(json.dumps(mail[-count:]))
+
+def usage():
+    print(__doc__, file=sys.stderr)
+
+def url_to_doc(url):
+    req = requests.get(url)
+    doc = lxml.html.document_fromstring(req.text)
+    return doc
+
+def parse_archives_page(url, max_mails=30):
+    doc = url_to_doc(url)
+
+    mail_urls = []
+    thread_urls = [a.attrib['href'] for a in doc.cssselect('td:nth-child(2) a:nth-child(4)')]
+
+    for thread_url in thread_urls:
+        t_doc = url_to_doc(os.path.join(url, thread_url))
+        t_mail_urls = (a.attrib['href'] for a in t_doc.cssselect('ul:nth-child(6) a[href]'))
+        t_mail_base = os.path.dirname(thread_url)
+        mail_urls = [os.path.join(url, t_mail_base, u) for u in t_mail_urls] + mail_urls
+        if len(mail_urls) >= max_mails:
+            break
+
+    mail_urls = mail_urls[-max_mails:]
+
+    mail = [parse_mail_page(u) for u in mail_urls]
+    return mail
+
+def parse_mail_page(url):
+    doc = url_to_doc(url)
+    mail = {}
+
+    # Subject
+    mail['subject'] = doc.find('.//h1').text.strip()
+
+    # From
+    from_name = doc.find('.//b').text.strip()
+    from_email = doc.find('.//a').text.strip().replace(' at ', '@')
+    mail['from'] = '"%s" <%s>' % (from_name, from_email)
+
+    # Date
+    date = doc.find('.//i').text.strip()
+    date = dateutil.parser.parse(date, tzinfos=TZINFOS)
+    if date.tzinfo:
+        date = date.astimezone(dateutil.tz.tzutc())
+        date = date.replace(tzinfo=None)
+    mail['date'] = date.isoformat() + 'Z'
+
+    # Body
+    mail['body'] = doc.find('.//pre').text_content()
+
+    return mail
+
+def _gen_tzinfos():
+    tz_str = textwrap.dedent('''\
+        -12 Y
+        -11 X NUT SST
+        -10 W CKT HAST HST TAHT TKT
+        -9 V AKST GAMT GIT HADT HNY
+        -8 U AKDT CIST HAY HNP PST PT
+        -7 T HAP HNR MST PDT
+        -6 S CST EAST GALT HAR HNC MDT
+        -5 R CDT COT EASST ECT EST ET HAC HNE PET
+        -4 Q AST BOT CLT COST EDT FKT GYT HAE HNA PYT
+        -3 P ADT ART BRT CLST FKST GFT HAA PMST PYST SRT UYT WGT
+        -2 O BRST FNT PMDT UYST WGST
+        -1 N AZOT CVT EGT
+        0 Z EGST GMT UTC WET WT
+        1 A CET DFT WAT WEDT WEST
+        2 B CAT CEDT CEST EET SAST WAST
+        3 C EAT EEDT EEST IDT MSK
+        4 D AMT AZT GET GST KUYT MSD MUT RET SAMT SCT
+        5 E AMST AQTT AZST HMT MAWT MVT PKT TFT TJT TMT UZT YEKT
+        6 F ALMT BIOT BTT IOT KGT NOVT OMST YEKST
+        7 G CXT DAVT HOVT ICT KRAT NOVST OMSST THA WIB
+        8 H ACT AWST BDT BNT CAST HKT IRKT KRAST MYT PHT SGT ULAT WITA WST
+        9 I AWDT IRKST JST KST PWT TLT WDT WIT YAKT
+        10 K AEST ChST PGT VLAT YAKST YAPT
+        11 L AEDT LHDT MAGT NCT PONT SBT VLAST VUT
+        12 M ANAST ANAT FJT GILT MAGST MHT NZST PETST PETT TVT WFT
+        13 FJST NZDT
+        11.5 NFT
+        10.5 ACDT LHST
+        9.5 ACST
+        6.5 CCT MMT
+        5.75 NPT
+        5.5 SLT
+        4.5 AFT IRDT
+        3.5 IRST
+        -2.5 HAT NDT
+        -3.5 HNT NST NT
+        -4.5 HLV VET
+        -9.5 MART MIT''')
+
+    tzinfos = {}
+    for tz_descr in map(str.split, tz_str.split('\n')):
+        tz_offset = int(float(tz_descr[0]) * 3600)
+        for tz_code in tz_descr[1:]:
+            tzinfos[tz_code] = tz_offset
+    return tzinfos
+
+TZINFOS = _gen_tzinfos()
+
+if __name__ == '__main__':
+    main()
