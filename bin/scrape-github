@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+import json
+import requests
+import sys
+
+def main():
+    events = []
+
+    for repo in sys.stdin:
+        r = requests.get("https://api.github.com/repos/%s/events" % repo.strip())
+        events.extend(json.loads(r.text))
+
+    events.sort(key=lambda e: e['created_at'])
+
+    print json.dumps(events)
+
+if __name__ == '__main__':
+    main()
