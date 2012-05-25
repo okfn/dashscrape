@@ -1,10 +1,34 @@
 #!/usr/bin/env python
+"""
+Usage: scrape-github [count] < repos.txt
+
+This program expects to read a newline-delimited list of GitHub repositories
+on STDIN. It will fetch the recent events feed for all of them and will
+interleave the output, printing at most 'count' entries.
+
+By default, 'count' is 30.
+"""
+
+from __future__ import print_function
 
 import json
+import os
 import requests
 import sys
 
 def main():
+    if os.isatty(sys.stdin.fileno()):
+        usage()
+        sys.exit(1)
+
+    if len(sys.argv) == 2:
+        count = int(sys.argv[1])
+    elif len(sys.argv) == 1:
+        count = 30
+    else:
+        usage()
+        sys.exit(1)
+
     events = []
 
     for repo in sys.stdin:
@@ -13,7 +37,13 @@ def main():
 
     events.sort(key=lambda e: e['created_at'])
 
-    print json.dumps(events)
+    print(json.dumps([map_event(e) for e in events[-count:]]))
+
+def map_event(obj):
+    return {'date': obj['created_at'], 'type': 'github', 'content': obj}
+
+def usage():
+    print(__doc__, file=sys.stderr)
 
 if __name__ == '__main__':
     main()

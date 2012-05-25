@@ -18,8 +18,6 @@ import requests
 import sys
 import textwrap
 
-MAILS = 30
-
 def main():
     if os.isatty(sys.stdin.fileno()):
         usage()
@@ -40,10 +38,14 @@ def main():
 
     mail.sort(key=lambda m: m['date'])
 
-    print(json.dumps(mail[-count:]))
+    print(json.dumps([map_mail(m) for m in mail[-count:]]))
 
 def usage():
     print(__doc__, file=sys.stderr)
+
+def map_mail(obj):
+    obj['type'] = 'mailinglists'
+    return obj
 
 def url_to_doc(url):
     req = requests.get(url)
