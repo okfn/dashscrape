@@ -1,5 +1,3 @@
-export PATH="${VIRTUAL_ENV}/bin:$PATH"
-
 #
 # Rebuild all project targets
 #
