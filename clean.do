@@ -1,5 +1,7 @@
 #
 # Remove all derived files
 #
-find out -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 rm -r
-rm -r .redo
+redo out/clean
+rm -rf .redo
+rm -rf .do_built.dir
+rm -f .do_built
