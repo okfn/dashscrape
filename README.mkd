@@ -1,0 +1,74 @@
+dashscrape
+==========
+
+A simple set of tools to scrape project activity for an OKFN "dashboard".
+
+what?
+-----
+
+Run `./bin/do` with no arguments to translate a set of per-project config files in `projects/` into a set of JSON files with the 30 most recent project activity items in `out/`.
+
+You can configure the number of recent items by changing the value in 'size'.
+
+why?
+----
+
+The generated JSON files serve as the data source for an online project dashboard, while delegating the heavy lifting to the code in this repository. Run `redo clean && redo` in a cronjob and serve the `out/` directory and, hey presto, a JSON project activity feed!
+
+how?
+----
+
+Add a project simply by creating the appropriate directory in `projects/` and adding config files for each scrape type. For example, to add the "foobar" project, which has Github repositories `foo/bar` and `foo/baz`, as well as a Pipermail mailing list archive at `http://foo.example.com/pipermail/foo-dev`, you might do the following:
+
+    $ mkdir projects/foobar
+    $ echo 'foo/bar' >> projects/foobar/github
+    $ echo 'foo/baz' >> projects/foobar/github
+    $ echo 'http://foo.example.com/pipermail/foo-dev' >> projects/foobar/mailinglists
+
+Then you can just run [`redo`](https://github.com/apenwarr/redo) (or `./bin/do` if you can't be bothered to install `redo`) to regenerate the output files.
+
+    $ redo
+    redo  all
+    redo    out/foobar/github
+    redo    out/foobar/mailinglists
+    ...
+    redo    out/foobar.json
+    ...
+    redo    out/all.json
+
+Now `out/foobar.json` will contain the 30 most recent events for the foobar project, and `out/all.json` will contain the 30 most recent events across all projects.
+
+no, but how?
+------------
+
+Create an executable in `bin/` called `scrape-<type>` which accepts a config file on STDIN and emits a JSON list on STDOUT. The scraper should accept one argument, denoting the number of recent items to emit.
+
+Each item in the JSON list *MUST* have a `date` field, in ISO8601 format, and *SHOULD* have a `type` field with a value identical to the scrape type name. That is, a scraper called `scrape-monkeys` should, at the bare minimum, emit a list of JSON objects like the following:
+
+    [
+      { "date": "2012-04-29", "type": "monkeys" },
+      { "date": "2012-04-30", "type": "monkeys" },
+      { "date": "2012-05-01", "type": "monkeys" }
+    ]
+
+You can then add config files for each project in `projects/<projectname>/<type>` and re-run `redo`.
+
+**Pull requests are solicited for new and exciting scrape types!**
+
+it's not doing anything!
+------------------------
+
+By default, `redo` will attempt to minimize the amount of work that is redone. If you wish to regenerate scrape files for an individual project (and all derived files) just run:
+
+    $ rm -rf out/<projectname>
+    $ redo
+
+If you want to clean up *everything* and start from scratch, run:
+
+    $ redo clean
+    $ redo
+
+who?
+----
+
+This is a project of [Nick Stenning](http://whiteink.com)'s, under the auspices of the [Open Knowledge Foundation](http://okfn.org).
