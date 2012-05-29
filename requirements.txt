@@ -1,4 +1,4 @@
 requests==0.12.1
 lxml==2.3.4
 python-dateutil==2.1
-goldenarch
+goldenarchgit+https://github.com/nickstenning/goldenarch@patch-1#egg=goldenarch
