@@ -15,7 +15,7 @@ import os
 import sys
 
 def main():
-    if {'-h', '--help'} & set(sys.argv):
+    if set(['-h', '--help']) & set(sys.argv):
         usage()
         sys.exit(1)
 
