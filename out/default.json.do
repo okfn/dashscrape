@@ -1,4 +1,7 @@
-# ./bin/do generates 'target.did' files: ignore them
-SRC="$(find $2 -type f ! -name '*.did' | xargs)"
+SRC="$(find ../projects/$2 -type f | while read f; do 
+  echo "${f#../projects/}"
+done | xargs)"
+
 redo-ifchange ../bin/merge ../size $SRC
+
 ../bin/merge $(cat ../size) $SRC
