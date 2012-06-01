@@ -75,6 +75,9 @@ def parse_mail_page(url):
     doc = url_to_doc(url)
     mail = {}
 
+    # URL
+    mail['url'] = url
+
     # Subject
     mail['subject'] = doc.find('.//h1').text.strip()
 
